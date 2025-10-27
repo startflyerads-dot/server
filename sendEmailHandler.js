@@ -96,3 +96,19 @@ ${data.description || 'N/A'}
     return { statusCode: 500, body: JSON.stringify({ error: (err && err.message) || 'Failed to send email' }) };
   }
 }
+
+// sendEmailHandler.js
+export async function sendEmail(data) {
+  const res = await fetch('/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Request failed: ${res.status}`);
+  }
+
+  return res.json();
+}
