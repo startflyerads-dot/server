@@ -151,6 +151,130 @@ app.post('/api/form3', async (req, res) => {
   }
 });
 
+// ====================================================
+// 🟢 FORM 4 — Service Discovery Wizard
+// ====================================================
+app.post('/api/form4', async (req, res) => {
+  const { answers, recommendations, timestamp, metadata } = req.body;
+
+  if (!answers || !recommendations) {
+    return res.status(400).json({ error: 'Wizard answers and recommendations are required' });
+  }
+
+  try {
+    const transporter = createTransporter();
+
+    // Format challenges and priorities lists
+    const challengesList = answers['challenges']?.map(challenge => `<li>${challenge}</li>`).join('') || 'None specified';
+    const prioritiesList = answers['priorities']?.map(priority => `<li>${priority}</li>`).join('') || 'None specified';
+    const servicesList = recommendations?.map(service => `
+      <li style="margin-bottom: 15px;">
+        <strong>${service.title}</strong><br>
+        ${service.description}<br>
+        <em>Benefits:</em> ${service.benefits.join(', ')}
+      </li>
+    `).join('') || 'No recommendations generated';
+
+    const html = `
+      <h2>New Service Discovery Wizard Submission</h2>
+      <p><strong>Submitted:</strong> ${new Date(timestamp).toLocaleString()}</p>
+      
+      <h3>Business Profile</h3>
+      <p><strong>Business Type:</strong> ${answers['business-type'] || 'Not specified'}</p>
+      
+      <h3>Selected Challenges</h3>
+      <ul style="margin-bottom: 20px;">
+        ${challengesList}
+      </ul>
+      
+      <h3>Priorities</h3>
+      <ul style="margin-bottom: 20px;">
+        ${prioritiesList}
+      </ul>
+      
+      <h3>Timeline</h3>
+      <p style="margin-bottom: 20px;">${answers['timeline'] || 'Not specified'}</p>
+      
+      <h3>Recommended Services</h3>
+      <ul style="margin-bottom: 20px;">
+        ${servicesList}
+      </ul>
+      
+      <h3>User Details</h3>
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: monospace;">
+        Browser: ${metadata?.userAgent || 'Not available'}<br>
+        Language: ${metadata?.language || 'Not available'}<br>
+        Screen Size: ${metadata?.screenSize || 'Not available'}
+      </div>
+      
+      <hr>
+      <p style="color: #666; font-size: 12px;">
+        Submitted via Service Discovery Wizard
+      </p>
+    `;
+
+    await transporter.sendMail({
+      from: `"Service Discovery Wizard" <${process.env.SMTP_USER}>`,
+      to: TO_EMAIL,
+      subject: 'New Service Discovery Wizard Submission',
+      html
+    });
+
+    res.json({ ok: true, message: 'Form4 (Service Discovery) submission processed successfully!' });
+  } catch (err) {
+    console.error('Form4 Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====================================================
+// 🟢 FORM 5 — Quote Request (Send Quote)
+// ====================================================
+app.post('/api/form5', async (req, res) => {
+  try {
+    const { service, form, timestamp, metadata } = req.body || {};
+
+    if (!form || !form.name || !form.email) {
+      return res.status(400).json({ error: 'Form submission must include name and email' });
+    }
+
+    const transporter = createTransporter();
+
+    const submittedAt = timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString();
+    const serviceTitle = service?.title || 'General';
+
+    const html = `
+      <h2>New Quote Request</h2>
+      <p><strong>Service:</strong> ${serviceTitle}</p>
+      <p><strong>Submitted:</strong> ${submittedAt}</p>
+
+      <h3>Contact</h3>
+      <p><strong>Name:</strong> ${form.name || ''}<br/>
+      <strong>Email:</strong> ${form.email || ''}<br/>
+      <strong>Company:</strong> ${form.company || ''}<br/>
+      <strong>Budget:</strong> ${form.budget || ''}<br/>
+      <strong>Timeline:</strong> ${form.timeline || ''}</p>
+
+      <h3>Message</h3>
+      <p>${(form.message || '').replace(/\n/g, '<br/>')}</p>
+
+      <h4>Metadata</h4>
+      <pre>${JSON.stringify(metadata || {}, null, 2)}</pre>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || `${form.name} <${process.env.SMTP_USER}>`,
+      to: process.env.NOTIFICATION_EMAIL || TO_EMAIL,
+      subject: `Quote Request - ${serviceTitle}`,
+      html,
+    });
+
+    return res.json({ ok: true, message: 'Form5 (Quote Request) submitted successfully!' });
+  } catch (err) {
+    console.error('Form5 Error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // ====================================================
 // 🟢 Start Server
